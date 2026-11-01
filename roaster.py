@@ -5,6 +5,7 @@ Code Roaster 🔥
 """
 
 import argparse
+import json
 import os
 import re
 import subprocess
@@ -33,6 +34,16 @@ class RoastIssue:
     rule_name: str
     severity: int  # 1 to 5
     comment: str
+
+    def to_dict(self) -> dict:
+        return {
+            "file_path": self.file_path,
+            "line_number": self.line_number,
+            "line_content": self.line_content,
+            "rule_name": self.rule_name,
+            "severity": self.severity,
+            "comment": self.comment,
+        }
 
 
 PERSONALITIES = {
@@ -116,6 +127,27 @@ PERSONALITIES = {
             "magic_number": "Магическое число {val}. Наверное, только ты знаешь, почему именно оно. Гениально.",
             "lazy_commit": "Коммит '{msg}'... Очень подробный changelog, клиенты будут в восторге.",
             "zombie_code": "Закомментировал полфайла? Ну да, git blame же платный стал, надо хранить в файле.",
+        },
+    },
+    "junior": {
+        "name": "Джуниор Саня",
+        "title": "Junior Developer (3 месяца после курсов)",
+        "avatar": [
+            r"       .--------. ",
+            r"      /  o   o   \ ",
+            r"     |     ∇      |  'Я не знаю, почему это",
+            r"     |   \____/   |   работает, пожалуйста,",
+            r"      \          /    НЕ ТРОГАЙТЕ НИЧЕГО!'",
+            r"       '--------' ",
+        ],
+        "flame_comments": {
+            "lazy_name": "Переменная '{name}'... О, я тоже так называю, когда не знаю, что писать! Брат!",
+            "todo": "TODO '{text}'? Да и ладно, потом кто-нибудь починит... наверное.",
+            "debug": "'{text}'! Я так дебажу всё подряд! Без принтов код вообще не понятен!",
+            "swallowed_error": "Пустой except? О, отличный трюк, теперь ничего не падает!",
+            "magic_number": "Число {val}... Ну работает же! Зачем константы выдумывать?",
+            "lazy_commit": "Коммит '{msg}'? Коротко и ясно! А что надо было целое сочинение писать?",
+            "zombie_code": "Закомментированный код? Не удаляй, вдруг пригодится через 5 лет!",
         },
     },
 }
@@ -350,9 +382,11 @@ def main():
         description="Code Roaster 🔥 — Ироничный CLI-ревьюер кода в терминале"
     )
     parser.add_argument("path", nargs="?", default=".", help="Файл или папка для прожарки (по умолчанию: текущая папка)")
-    parser.add_argument("--persona", choices=["senior", "ramsay", "cyber", "teamlead"], default="senior", help="Выбор личности ревьюера")
+    parser.add_argument("--persona", choices=["senior", "ramsay", "cyber", "teamlead", "junior"], default="senior", help="Выбор личности ревьюера")
     parser.add_argument("--git", action="store_true", help="Также прожарить историю git-коммитов")
     parser.add_argument("--ext", nargs="+", help="Пользовательский список расширений (например: .py .go .rs)")
+    parser.add_argument("--json", action="store_true", help="Вывести отчет в машинно-читаемом формате JSON")
+    parser.add_argument("--min-severity", type=int, choices=[1, 2, 3, 4, 5], default=None, help="Фильтр минимальной строгости замечаний (1-5)")
 
     args = parser.parse_args()
     target_path = Path(args.path).resolve()
@@ -382,7 +416,22 @@ def main():
     if args.git or (target_path / ".git").exists():
         all_issues.extend(scan_git_history(target_path, personality))
 
+    if args.min_severity is not None:
+        all_issues = [i for i in all_issues if i.severity >= args.min_severity]
+
     score = calculate_flame_score(all_issues, len(files_to_scan))
+
+    if args.json:
+        output_data = {
+            "persona": args.persona,
+            "flame_score": score,
+            "total_files": len(files_to_scan),
+            "total_issues": len(all_issues),
+            "issues": [i.to_dict() for i in all_issues],
+        }
+        print(json.dumps(output_data, ensure_ascii=False, indent=2))
+        return
+
     render_terminal_report(all_issues, personality, score, len(files_to_scan))
 
 

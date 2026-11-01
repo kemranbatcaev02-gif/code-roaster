@@ -20,12 +20,19 @@ class TestCodeRoaster(unittest.TestCase):
         self.senior = PERSONALITIES["senior"]
 
     def test_personalities_structure(self):
-        for key in ["senior", "ramsay", "cyber", "teamlead"]:
+        for key in ["senior", "ramsay", "cyber", "teamlead", "junior"]:
             self.assertIn(key, PERSONALITIES)
             p = PERSONALITIES[key]
             self.assertIn("name", p)
             self.assertIn("avatar", p)
             self.assertIn("flame_comments", p)
+
+    def test_to_dict(self):
+        issue = RoastIssue("f.py", 10, "x = 1", "Нейминг", 3, "Плохо")
+        d = issue.to_dict()
+        self.assertEqual(d["file_path"], "f.py")
+        self.assertEqual(d["line_number"], 10)
+        self.assertEqual(d["severity"], 3)
 
     def test_scan_bad_code(self):
         issues = scan_file(self.sample_file, self.senior)
